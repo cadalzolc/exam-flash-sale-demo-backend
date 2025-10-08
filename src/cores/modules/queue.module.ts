@@ -1,34 +1,32 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
-import { ConfigModule, ConfigService } from "@nestjs/config";
+import { ConfigModule } from "@nestjs/config";
+import Redis from "ioredis";
 import { QUEUES_PURCHASE } from "src/lib/common";
-import { IConfigRedis } from "src/lib/models/interface";
+import { BuyConsumer } from "../consumer/buy.consumer";
+import { BuyQueues } from "../queues/queue.buy";
 import { QueueService } from "../services/queue.service";
-import { PurchaseWorker } from "../worker/worker.purchase";
+import { RedisModule } from "./redis.module";
+import { SocketModule } from "./socket.module";
 
 @Module({
   imports: [
+    RedisModule,
+    SocketModule,
     BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (cs: ConfigService) => {
-        const cn = cs.get<IConfigRedis>("redis");
-
+      imports: [ConfigModule, RedisModule],
+      useFactory: (redis: Redis) => {
         return {
-          connection: {
-            host: cn?.host,
-            port: cn?.port,
-            username: cn?.user,
-            password: cn?.pass,
-          },
+          connection: redis,
         };
       },
-      inject: [ConfigService],
+      inject: ["REDIS_CLIENT"],
     }),
     BullModule.registerQueue({
       name: QUEUES_PURCHASE,
     }),
   ],
-  providers: [QueueService, PurchaseWorker],
-  exports: [QueueService],
+  providers: [QueueService, BuyQueues, BuyConsumer],
+  exports: [QueueService, BuyConsumer],
 })
 export class QueueModule {}

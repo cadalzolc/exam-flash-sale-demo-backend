@@ -1,0 +1,139 @@
+// scripts/seed.ts
+import { PrismaClient } from '@prisma/client'
+import { Decimal } from '@prisma/client/runtime/library'
+
+const prisma = new PrismaClient()
+
+async function main() {
+  console.log('🌱 Starting seed...')
+
+  // Clear existing data
+  await prisma.purchase.deleteMany()
+  await prisma.promoProduct.deleteMany()
+  await prisma.promo.deleteMany()
+  await prisma.product.deleteMany()
+
+  // Create products
+  const products = await prisma.product.createMany({
+    data: [
+      {
+        name: 'iPhone 15 Pro',
+        description: 'Latest Apple smartphone with advanced camera',
+        url: 'https://example.com/iphone15',
+        stock: 1000,
+      },
+      {
+        name: 'Samsung Galaxy S24',
+        description: 'Powerful Android phone with AI features',
+        url: 'https://example.com/galaxy-s24',
+        stock: 800,
+      },
+      {
+        name: 'MacBook Air M3',
+        description: 'Lightweight laptop with Apple Silicon',
+        url: 'https://example.com/macbook-air',
+        stock: 500,
+      },
+      {
+        name: 'Sony WH-1000XM5',
+        description: 'Noise-canceling wireless headphones',
+        url: 'https://example.com/sony-headphones',
+        stock: 300,
+      },
+      {
+        name: 'Nintendo Switch OLED',
+        description: 'Gaming console with vibrant OLED screen',
+        url: 'https://example.com/nintendo-switch',
+        stock: 200,
+      },
+    ],
+  })
+
+  console.log(`✅ Created 5 products`)
+
+  // Create flash sale promo (active for next 24 hours)
+  const flashSale = await prisma.promo.create({
+    data: {
+      name: 'Flash Sale October 2024',
+      dateStart: new Date(),
+      dateEnd: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours from now
+      mode: 'FLASH_SALE',
+      isActive: true,
+    },
+  })
+
+  console.log(`✅ Created flash sale promo: ${flashSale.name}`)
+
+  // Create promo products with limited stock for flash sale
+  const promoProducts = await prisma.promoProduct.createMany({
+    data: [
+      {
+        promoId: flashSale.id,
+        productId: 1,
+        stock: 100,
+        price: new Decimal('899.99'),
+        sold: 0,
+        maxQtyPerOrder: 2,
+      },
+      {
+        promoId: flashSale.id,
+        productId: 2,
+        stock: 80,
+        price: new Decimal('749.99'),
+        sold: 0,
+        maxQtyPerOrder: 2,
+      },
+      {
+        promoId: flashSale.id,
+        productId: 3,
+        stock: 50,
+        price: new Decimal('1099.99'),
+        sold: 0,
+        maxQtyPerOrder: 1,
+      },
+      {
+        promoId: flashSale.id,
+        productId: 4,
+        stock: 30,
+        price: new Decimal('299.99'),
+        sold: 0,
+        maxQtyPerOrder: 3,
+      },
+      {
+        promoId: flashSale.id,
+        productId: 5,
+        stock: 20,
+        price: new Decimal('349.99'),
+        sold: 0,
+        maxQtyPerOrder: 1,
+      },
+    ],
+  })
+
+  console.log(`✅ Created ${promoProducts.count} promo products`)
+
+  // Display created data
+  const result = await prisma.promoProduct.findMany({
+    where: { promoId: flashSale.id },
+    include: {
+      product: true,
+      promo: true,
+    },
+  })
+
+  console.log('\n📦 Flash Sale Products:')
+  result.forEach((pp) => {
+    console.log(`   ${pp.product.name}: ${pp.stock} units at $${pp.price}, max ${pp.maxQtyPerOrder} per order`)
+  })
+
+  console.log('\n🎉 Seed completed!')
+}
+
+main()
+  .catch((e) => {
+    console.error('❌ Seed failed:', e)
+    process.exit(1)
+  })
+  .finally(async () => {
+    await prisma.$disconnect()
+  })

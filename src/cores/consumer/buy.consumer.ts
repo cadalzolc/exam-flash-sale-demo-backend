@@ -3,22 +3,27 @@ import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { QUEUES_PURCHASE } from "src/lib/common";
 import { IDataBuy } from "src/lib/models/data";
-import { BuyService } from "../services/buy.service";
+import { BuyQueues } from "../queues/queue.buy";
 
 const CONCURRENCY = 3;
 
 @Processor(QUEUES_PURCHASE, { concurrency: CONCURRENCY })
-export class PurchaseWorker extends WorkerHost {
-  private readonly logger = new Logger(PurchaseWorker.name);
+export class BuyConsumer extends WorkerHost {
+  private readonly logger = new Logger(BuyConsumer.name);
 
-  constructor(private readonly svc: BuyService) {
+  constructor(private readonly ques: BuyQueues) {
     super();
   }
 
-  async process(job: Job<IDataBuy, any, string>) {
+  async process(job: Job<IDataBuy, any, string>): Promise<any> {
     const { data } = job;
-    if (job.name === "buy-product") {
-      await this.svc.Create(data);
+    try {
+      this.logger.log(`Processing job ${job.id} for ${data.email}`);
+      if (job.name === "buy-product") {
+        await this.ques.Process(data);
+      }
+    } catch (error) {
+      throw error;
     }
   }
 

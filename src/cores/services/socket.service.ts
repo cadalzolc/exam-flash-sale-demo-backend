@@ -8,7 +8,7 @@ import {
 import { Server, Socket } from "socket.io";
 
 @WebSocketGateway({
-  path: "/feeds",
+  path: "/stocks",
   cors: {
     origin: "*",
   },
@@ -28,12 +28,18 @@ export class SocketService implements OnGatewayConnection, OnGatewayDisconnect {
     this.logger.log(`Client disconnected: ${socket.id}`);
   }
 
-  emitStockUpdate(stock: number, productId: number) {
-    this.server.to("product-updates").emit("stock:update", {
+  joinProductRoom(socket: Socket, promoId: number, productId: number) {
+    socket.join(`room:${promoId}:${productId}`);
+    this.logger.log(`Client ${socket.id} joined room:${promoId}:${productId}`);
+  }
+
+  emitStockUpdateToProduct(promoId: number, productId: number, stock: number) {
+    const roomName = `room:${promoId}:${productId}`;
+    this.server.to(roomName).emit("stock:update", {
+      promoId,
       productId,
-      stock: stock,
+      stock,
       timestamp: new Date().toISOString(),
     });
-    this.logger.log(`Stock update: ${stock} remaining for ${productId}`);
   }
 }

@@ -3,7 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { Queue } from "bullmq";
 
 import { QUEUES_PURCHASE } from "src/lib/common";
-import { IPurchase } from "src/lib/models/data";
+import { IDataBuy } from "src/lib/models/data";
 
 @Injectable()
 export class QueueService {
@@ -11,7 +11,7 @@ export class QueueService {
 
   constructor(@InjectQueue(QUEUES_PURCHASE) private queues: Queue) {}
 
-  async addPurchase(payload: IPurchase) {
+  async addToPurchaseQueue(payload: IDataBuy) {
     await this.queues.add("buy-product", payload, {
       attempts: 2,
       backoff: { type: "exponential", delay: 3000 },

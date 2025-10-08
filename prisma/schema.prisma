@@ -33,6 +33,7 @@ model Promo {
    dateEnd       DateTime       @map("date_end")
    mode          ESalesMode     @default(NORMAL)
    createdAt     DateTime       @default(now()) @map("created_at")
+   isActive      Boolean        @map("is_active")
    promoProducts PromoProduct[]
    purchases     Purchase[]
 
@@ -41,7 +42,7 @@ model Promo {
 
 model PromoProduct {
    id             Int     @id @default(autoincrement())
-   promoId        Int
+   promoId        Int     @map("promo_id")
    promo          Promo   @relation(fields: [promoId], references: [id])
    productId      Int     @map("product_id")
    product        Product @relation(fields: [productId], references: [id])
