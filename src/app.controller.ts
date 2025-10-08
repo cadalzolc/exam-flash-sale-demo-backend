@@ -1,12 +1,18 @@
-import { Controller, Get } from '@nestjs/common';
-import { AppService } from './app.service';
+import { Controller, Get, Render } from "@nestjs/common";
+import { GetCurrentStamp } from "./lib/common";
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor() {}
 
   @Get()
-  getHello(): string {
-    return this.appService.getHello();
+  @Render("index")
+  root() {
+    return {
+      lang: "en",
+      stamp: GetCurrentStamp(),
+      icon: `${process.env.APP_URL ?? ""}/favicon.ico`,
+      version: process.env.APP_VERSION,
+    };
   }
 }

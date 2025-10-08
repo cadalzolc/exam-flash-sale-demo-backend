@@ -6,3 +6,66 @@ datasource db {
    provider = "postgresql"
    url      = env("DATABASE_URL")
 }
+
+enum ESalesMode {
+   NORMAL
+   FLASH
+   FREE
+}
+
+model Product {
+   id            Int            @id @default(autoincrement())
+   name          String
+   description   String
+   url           String?
+   stock         Int
+   createdAt     DateTime       @default(now()) @map("created_at")
+   promoProducts PromoProduct[]
+   purchases     Purchase[]
+
+   @@map("products")
+}
+
+model Promo {
+   id            Int            @id @default(autoincrement())
+   name          String
+   dateStart     DateTime       @map("date_start")
+   dateEnd       DateTime       @map("date_end")
+   mode          ESalesMode     @default(NORMAL)
+   createdAt     DateTime       @default(now()) @map("created_at")
+   promoProducts PromoProduct[]
+   purchases     Purchase[]
+
+   @@map("promos")
+}
+
+model PromoProduct {
+   id             Int     @id @default(autoincrement())
+   promoId        Int
+   promo          Promo   @relation(fields: [promoId], references: [id])
+   productId      Int     @map("product_id")
+   product        Product @relation(fields: [productId], references: [id])
+   stock          Int     @default(0)
+   price          Decimal @default(0)
+   sold           Int     @default(0)
+   maxQtyPerOrder Int     @map("max_qty_per_order")
+
+   @@unique([productId, promoId])
+   @@map("promos_products")
+}
+
+model Purchase {
+   id        Int      @id @default(autoincrement())
+   promoId   Int?     @map("promo_id")
+   promo     Promo?   @relation(fields: [promoId], references: [id])
+   productId Int      @map("product_id")
+   product   Product  @relation(fields: [productId], references: [id])
+   email     String
+   quantity  Int      @default(0)
+   price     Decimal  @default(0)
+   total     Decimal  @default(0)
+   createdAt DateTime @default(now()) @map("created_at")
+
+   @@index([email, createdAt])
+   @@map("purchases")
+}

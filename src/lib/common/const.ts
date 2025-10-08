@@ -1,0 +1,1 @@
+export const QUEUES_PURCHASE = "QPURCHASES";
