@@ -4,7 +4,7 @@ import { ConfigModule, ConfigService } from "@nestjs/config";
 import { QUEUES_PURCHASE } from "src/lib/common";
 import { IConfigRedis } from "src/lib/models/interface";
 import { QueueService } from "../services/queue.service";
-import { PurchaseWorker } from "../worker/purchase.consumer";
+import { PurchaseWorker } from "../worker/worker.purchase";
 
 @Module({
   imports: [
