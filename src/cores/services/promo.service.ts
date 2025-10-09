@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { IProduct, IPromoPeriod } from "src/lib/models/data";
+import { IPromoPeriod, IPromoResponse } from "src/lib/models/data";
 import { IResponse } from "src/lib/models/interface";
 import { DBService } from "./db.service";
 import { RedisService } from "./redis.service";
@@ -53,28 +53,47 @@ export class PromoService {
     };
   };
 
-  List = async (id: number): Promise<IResponse<IProduct[]>> => {
-    const products = await this.db.promoProduct.findMany({
+  Info = async (id: number): Promise<IResponse<IPromoResponse>> => {
+    const promo = await this.db.promo.findFirst({
       where: {
-        promoId: id,
+        id: id,
+        isActive: true,
       },
       include: {
-        product: true,
+        promoProducts: {
+          include: {
+            product: true,
+          },
+        },
       },
     });
 
-    const result: IProduct[] = products.map((p) => ({
-      id: p.id,
-      name: p.product.name,
-      description: p.product.description,
-      stock: p.stock,
-      promoId: p.id,
-      price: p.price.toNumber(),
-    }));
+    if (!promo) {
+      return {
+        code: "Failed",
+        message: "No active promo",
+      };
+    }
+
+    const result: IPromoResponse = {
+      id: promo.id,
+      name: promo.name,
+      dateStart: promo.dateStart,
+      dateEnd: promo.dateEnd,
+      mode: promo.mode,
+      products: promo.promoProducts.map((p) => ({
+        id: p.productId,
+        promoId: p.promoId,
+        name: p.product.name,
+        description: p.product.description,
+        stock: p.stock,
+        price: p.price.toNumber(),
+      })),
+    };
 
     return {
       code: "Success",
-      message: `${result.length} products available`,
+      message: `${result.products.length} products available`,
       data: result,
     };
   };

@@ -3,8 +3,8 @@ import { IProduct } from "./idata.product";
 export interface IPromo {
   id: number;
   name: string;
-  dateStart: string;
-  dateEnd: string;
+  dateStart: Date;
+  dateEnd: Date;
   mode: string;
 }
 
@@ -23,4 +23,8 @@ export interface IPromoPeriod {
   promoId: number;
   dateStart: Date;
   dateEnd: Date;
+}
+
+export interface IPromoResponse extends IPromo {
+  products: IProduct[];
 }

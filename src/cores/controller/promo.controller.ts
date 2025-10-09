@@ -13,9 +13,9 @@ import { PromoService } from "../services/promo.service";
 export class PromoController {
   constructor(private readonly services: PromoService) {}
 
-  @Get(":id/products")
+  @Get(":id")
   ProductList(@Param("id", ParseIntPipe) id: number) {
-    return this.services.List(id);
+    return this.services.Info(id);
   }
 
   @Post(":id/reset")
