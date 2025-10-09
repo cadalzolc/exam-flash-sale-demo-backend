@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { IDataBuy, IPurchaseResponse } from "src/lib/models/data";
+import { IDataBuy } from "src/lib/models/data";
 import { DtoBuy } from "src/lib/models/dto";
 import { IResponse } from "src/lib/models/interface";
 import { DBService } from "./db.service";
@@ -44,7 +44,7 @@ export class BuyService {
     return !!existingPurchase;
   }
 
-  Create = async (payload: DtoBuy): Promise<IResponse<IPurchaseResponse>> => {
+  Create = async (payload: DtoBuy): Promise<IResponse<undefined>> => {
     const data: IDataBuy = {
       promoId: payload.promoId,
       productId: payload.productId,

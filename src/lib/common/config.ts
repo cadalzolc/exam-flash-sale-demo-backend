@@ -17,4 +17,5 @@ export const EnvConfig = () => ({
     user: process.env.REDIS_USERNAME || "",
     pass: process.env.REDIS_PASSWORD || "",
   },
+  frontend: process.env.FRONTEND_URL || "http://localhost:3000",
 });

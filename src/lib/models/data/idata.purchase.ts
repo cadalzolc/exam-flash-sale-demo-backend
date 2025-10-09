@@ -13,4 +13,5 @@ export interface IPurchaseResponse {
   product: string;
   customer: string;
   total: number;
+  promo: string;
 }

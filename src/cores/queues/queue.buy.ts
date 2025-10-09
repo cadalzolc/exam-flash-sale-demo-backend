@@ -77,7 +77,7 @@ export class BuyQueues {
         payload.productId,
       );
 
-      this.socketService.emitStockUpdateToProduct(
+      this.socketService.emitStockPromoUpdate(
         payload.promoId,
         payload.productId,
         currentRedisStock,
