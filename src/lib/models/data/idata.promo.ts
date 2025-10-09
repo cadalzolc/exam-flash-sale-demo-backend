@@ -18,3 +18,9 @@ export interface IPromoProduct {
   price: number;
   sold: number;
 }
+
+export interface IPromoPeriod {
+  promoId: number;
+  dateStart: Date;
+  dateEnd: Date;
+}

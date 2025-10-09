@@ -1,7 +1,11 @@
-import { IsNotEmpty, IsNumber } from "class-validator";
+import { IsDate, IsNotEmpty } from "class-validator";
 
-export class DtoPromoId {
-  @IsNumber({}, { message: "Must be a number" })
+export class DtoPromoPeriod {
+  @IsDate({ message: "Must be a Date" })
   @IsNotEmpty({ message: "Required" })
-  promoId!: number;
+  dateStart!: Date;
+
+  @IsDate({ message: "Must be a Date" })
+  @IsNotEmpty({ message: "Required" })
+  dateEnd!: Date;
 }

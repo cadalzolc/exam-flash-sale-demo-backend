@@ -20,8 +20,6 @@ export class BuyService {
     promoId: number,
   ): Promise<boolean> {
     const now = new Date();
-    console.log("=== DEBUG INFO ===");
-    console.log("Current date:", now);
 
     const existingPurchase = await this.db.purchase.findFirst({
       where: {
@@ -42,8 +40,6 @@ export class BuyService {
         },
       },
     });
-
-    console.log("Found purchase:", existingPurchase);
 
     return !!existingPurchase;
   }

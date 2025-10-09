@@ -26,6 +26,25 @@ export class BuyQueues {
     }
 
     try {
+      // Update stock in promo products
+      await this.db.promoProduct.update({
+        where: {
+          productId_promoId: {
+            promoId: payload.promoId,
+            productId: payload.productId,
+          },
+        },
+        data: {
+          stock: {
+            decrement: payload.quantity,
+          },
+          sold: {
+            increment: payload.quantity,
+          },
+        },
+      });
+
+      // Update stock in products
       const updatedProduct = await this.db.product.update({
         where: { id: payload.productId },
         data: {
