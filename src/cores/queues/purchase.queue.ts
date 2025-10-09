@@ -22,6 +22,18 @@ export class PurchaseQueue {
     );
 
     if (!reserved) {
+      this.socketService.emitPurchaseStatus(
+        payload.promoId,
+        payload.productId,
+        "NOSTOCK",
+        {
+          transNo: payload.transNo,
+          transDate: payload.transDate,
+          product: payload.product,
+          customer: payload.email,
+          amount: payload.price,
+        },
+      );
       throw new Error("Insufficient stock");
     }
 
@@ -79,6 +91,7 @@ export class PurchaseQueue {
       this.socketService.emitPurchaseStatus(
         payload.promoId,
         payload.productId,
+        "COMPLETED",
         {
           transNo: payload.transNo,
           transDate: payload.transDate,
@@ -86,7 +99,6 @@ export class PurchaseQueue {
           customer: payload.email,
           amount: payload.price,
         },
-        "COMPLETED",
       );
 
       this.logger.log(`Purchase completed: ${purchase.id}`);
