@@ -14,6 +14,7 @@ enum ESalesMode {
 }
 
 enum EPurchaseStatus {
+   NOSTOCK
    PENDING
    COMPLETED
 }

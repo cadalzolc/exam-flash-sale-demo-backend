@@ -2,7 +2,7 @@ import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { QUEUES_PURCHASE } from "src/lib/common";
-import { IPurchaseOrder } from "src/lib/models/data";
+import { IJobPurchase } from "src/lib/models/data";
 import { PurchaseQueue } from "../queues/purchase.queue";
 
 const CONCURRENCY = 3;
@@ -15,7 +15,7 @@ export class PurchaseConsumer extends WorkerHost {
     super();
   }
 
-  async process(job: Job<IPurchaseOrder, any, string>): Promise<any> {
+  async process(job: Job<IJobPurchase, any, string>): Promise<any> {
     const { data } = job;
     try {
       this.logger.log(`Processing job ${job.id} for ${data.email}`);
@@ -28,7 +28,7 @@ export class PurchaseConsumer extends WorkerHost {
   }
 
   @OnWorkerEvent("active")
-  onActive(job: Job<IPurchaseOrder, any, string>) {
+  onActive(job: Job<IJobPurchase, any, string>) {
     const { data } = job;
     this.logger.log(
       `[${job.name.toUpperCase()}:${job.id}] [${data.email}:${data.productId}] is in process...`,
@@ -36,12 +36,12 @@ export class PurchaseConsumer extends WorkerHost {
   }
 
   @OnWorkerEvent("completed")
-  onCompleted(job: Job<IPurchaseOrder, any, string>) {
+  onCompleted(job: Job<IJobPurchase, any, string>) {
     this.logger.log(`[${job.name.toUpperCase()}:${job.id}] Completed.`);
   }
 
   @OnWorkerEvent("failed")
-  onFailed(job: Job<IPurchaseOrder, any, string>, error: Error) {
+  onFailed(job: Job<IJobPurchase, any, string>, error: Error) {
     this.logger.error(
       `[${job.name.toUpperCase()}:${job.id}] Failed: ${error.message}`,
     );
