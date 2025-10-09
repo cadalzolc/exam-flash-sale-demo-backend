@@ -59,12 +59,18 @@ export class SocketService implements OnGatewayConnection, OnGatewayDisconnect {
     );
   }
 
-  emitStockPromoUpdate(promoId: number, productId: number, stock: number) {
+  emitStockPromoUpdate(
+    promoId: number,
+    productId: number,
+    stock: number,
+    sold: number,
+  ) {
     const roomName = `room:${promoId}:${productId}`;
     this.server.to(roomName).emit("stock:update", {
       promoId,
       productId,
       stock,
+      sold,
       timestamp: new Date().toISOString(),
     });
   }

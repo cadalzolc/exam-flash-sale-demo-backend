@@ -1,5 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { FormatCode } from "src/lib/common";
+import { ExtractId, FormatCode } from "src/lib/common";
 import { IOrderResponse, IPurchaseOrder } from "src/lib/models/data";
 import { DtoPurchaseOrder } from "src/lib/models/dto";
 import { IResponse } from "src/lib/models/interface";
@@ -130,6 +130,36 @@ export class PurchaseService {
         date: purchase.createdAt,
         amount: purchase.total.toNumber(),
       },
+    };
+  };
+
+  Check = async (no: string): Promise<IResponse<string>> => {
+    const id = ExtractId(no);
+
+    if (id === 0) {
+      return {
+        code: "Failed",
+        message: "Invalid value or format",
+      };
+    }
+
+    const purchase = await this.db.purchase.findFirst({
+      where: {
+        id,
+      },
+    });
+
+    if (!purchase) {
+      return {
+        code: "NotFound",
+        message: "No record found",
+      };
+    }
+
+    return {
+      code: "Success",
+      message: "Found",
+      data: purchase.status,
     };
   };
 }

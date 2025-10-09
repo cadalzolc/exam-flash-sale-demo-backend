@@ -38,7 +38,7 @@ export class PurchaseQueue {
     }
 
     try {
-      await this.db.promoProduct.update({
+      const promoP = await this.db.promoProduct.update({
         where: {
           productId_promoId: {
             promoId: payload.promoId,
@@ -86,6 +86,7 @@ export class PurchaseQueue {
         payload.promoId,
         payload.productId,
         currentRedisStock,
+        promoP.sold,
       );
 
       this.socketService.emitPurchaseStatus(

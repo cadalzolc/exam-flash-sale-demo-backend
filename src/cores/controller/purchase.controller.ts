@@ -1,4 +1,4 @@
-import { Body, Controller, Post } from "@nestjs/common";
+import { Body, Controller, Get, Param, Post } from "@nestjs/common";
 import { DtoPurchaseOrder } from "src/lib/models/dto";
 import { PurchaseService } from "../services/purchase.service";
 
@@ -9,5 +9,10 @@ export class PurchaseController {
   @Post()
   Create(@Body() payload: DtoPurchaseOrder) {
     return this.svcOrder.Create(payload);
+  }
+
+  @Get("status/:no")
+  StatusCheck(@Param("no") no: string) {
+    return this.svcOrder.Check(no);
   }
 }

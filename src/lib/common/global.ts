@@ -76,3 +76,16 @@ export const FormatCode = (prefix: string, id: number, pad: number = 7) => {
 
   return `${prefix}-${year}${month}${day}-${paddedId}`;
 };
+
+export const ExtractId = (code: string): number => {
+  try {
+    const parts = code.split("-");
+    if (parts.length !== 3) {
+      return 0;
+    }
+    const idPart = parts[2];
+    return parseInt(idPart, 10);
+  } catch {
+    return 0;
+  }
+};
