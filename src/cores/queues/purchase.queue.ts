@@ -1,4 +1,5 @@
 import { Injectable, Logger } from "@nestjs/common";
+import { GetDateStatus } from "src/lib/common";
 import { IJobPurchase } from "src/lib/models/data";
 import { DBService } from "../services/db.service";
 import { RedisService } from "../services/redis.service";
@@ -38,6 +39,20 @@ export class PurchaseQueue {
     }
 
     try {
+      const pr = await this.db.promo.findFirst({
+        where: { id: payload.promoId },
+      });
+
+      if (!pr) {
+        throw new Error("No promo found");
+      }
+
+      const status = GetDateStatus(pr.dateStart, pr.dateEnd);
+
+      if (status === "EXPIRED" || status === "UPCOMING") {
+        throw new Error("Promo is not active");
+      }
+
       const promoP = await this.db.promoProduct.update({
         where: {
           productId_promoId: {
