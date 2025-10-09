@@ -82,6 +82,7 @@ export class PromoService {
         name: p.product.name,
         description: p.product.description,
         stock: p.stock,
+        sold: p.sold,
         price: p.price.toNumber(),
       })),
     };
