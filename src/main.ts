@@ -7,10 +7,18 @@ import { RouteLogger, ValidationExceptionFactory } from "./lib/common";
 
 async function bootstrap() {
   const port = process.env.APP_PORT || 3500;
-  const appPrefix = process.env.APP_NAME || "Susan";
+  const appPrefix = process.env.APP_NAME || "Flash-Sales";
+  const corsOrigin = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(" ").map((origin) => origin.trim())
+    : [];
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
+    cors: {
+      origin: corsOrigin,
+      credentials: true,
+      allowedHeaders: ["Content-Type", "X-CADALZO"],
+    },
     logger: new RouteLogger(appPrefix, {
       timestamp: false,
     }),

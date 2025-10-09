@@ -1,12 +1,12 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { IDataBuy } from "src/lib/models/data";
+import { IJobPurchase } from "src/lib/models/data";
 import { DBService } from "../services/db.service";
 import { RedisService } from "../services/redis.service";
 import { SocketService } from "../services/socket.service";
 
 @Injectable()
-export class BuyQueues {
-  private readonly logger = new Logger(BuyQueues.name);
+export class PurchaseQueue {
+  private readonly logger = new Logger(PurchaseQueue.name);
 
   constructor(
     private db: DBService,
@@ -14,7 +14,7 @@ export class BuyQueues {
     private socketService: SocketService,
   ) {}
 
-  Process = async (payload: IDataBuy): Promise<void> => {
+  Process = async (payload: IJobPurchase): Promise<void> => {
     const reserved = await this.redisService.reserveStockAtomic(
       payload.promoId,
       payload.productId,
@@ -26,7 +26,6 @@ export class BuyQueues {
     }
 
     try {
-      // Update stock in promo products
       await this.db.promoProduct.update({
         where: {
           productId_promoId: {
@@ -44,7 +43,6 @@ export class BuyQueues {
         },
       });
 
-      // Update stock in products
       const updatedProduct = await this.db.product.update({
         where: { id: payload.productId },
         data: {
@@ -59,17 +57,12 @@ export class BuyQueues {
         },
       });
 
-      const newData = {
-        promoId: payload.promoId,
-        productId: payload.productId,
-        email: payload.email,
-        quantity: payload.quantity,
-        price: payload.price,
-        total: payload.quantity * payload.price,
-      };
-
-      const purchase = await this.db.purchase.create({
-        data: newData,
+      const purchase = await this.db.purchase.update({
+        where: { id: payload.purchaseId },
+        data: {
+          status: "COMPLETED",
+          updatedAt: new Date(),
+        },
       });
 
       const currentRedisStock = await this.redisService.getStock(
@@ -81,6 +74,19 @@ export class BuyQueues {
         payload.promoId,
         payload.productId,
         currentRedisStock,
+      );
+
+      this.socketService.emitPurchaseStatus(
+        payload.promoId,
+        payload.productId,
+        {
+          transNo: payload.transNo,
+          transDate: payload.transDate,
+          product: payload.product,
+          customer: payload.email,
+          amount: payload.price,
+        },
+        "COMPLETED",
       );
 
       this.logger.log(`Purchase completed: ${purchase.id}`);

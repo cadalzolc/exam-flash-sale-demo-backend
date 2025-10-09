@@ -13,6 +13,11 @@ enum ESalesMode {
    FREE
 }
 
+enum EPurchaseStatus {
+   PENDING
+   COMPLETED
+}
+
 model Product {
    id            Int            @id @default(autoincrement())
    name          String
@@ -56,16 +61,18 @@ model PromoProduct {
 }
 
 model Purchase {
-   id        Int      @id @default(autoincrement())
-   promoId   Int?     @map("promo_id")
-   promo     Promo?   @relation(fields: [promoId], references: [id])
-   productId Int      @map("product_id")
-   product   Product  @relation(fields: [productId], references: [id])
+   id        Int             @id @default(autoincrement())
+   promoId   Int?            @map("promo_id")
+   promo     Promo?          @relation(fields: [promoId], references: [id])
+   productId Int             @map("product_id")
+   product   Product         @relation(fields: [productId], references: [id])
    email     String
-   quantity  Int      @default(0)
-   price     Decimal  @default(0)
-   total     Decimal  @default(0)
-   createdAt DateTime @default(now()) @map("created_at")
+   quantity  Int             @default(0)
+   price     Decimal         @default(0)
+   total     Decimal         @default(0)
+   status    EPurchaseStatus
+   createdAt DateTime        @default(now()) @map("created_at")
+   updatedAt DateTime?       @map("updated_at")
 
    @@index([email, createdAt])
    @@map("purchases")

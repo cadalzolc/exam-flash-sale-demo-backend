@@ -2,24 +2,24 @@ import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { Job } from "bullmq";
 import { QUEUES_PURCHASE } from "src/lib/common";
-import { IDataBuy } from "src/lib/models/data";
-import { BuyQueues } from "../queues/queue.buy";
+import { IPurchaseOrder } from "src/lib/models/data";
+import { PurchaseQueue } from "../queues/purchase.queue";
 
 const CONCURRENCY = 3;
 
 @Processor(QUEUES_PURCHASE, { concurrency: CONCURRENCY })
-export class BuyConsumer extends WorkerHost {
-  private readonly logger = new Logger(BuyConsumer.name);
+export class PurchaseConsumer extends WorkerHost {
+  private readonly logger = new Logger(PurchaseConsumer.name);
 
-  constructor(private readonly ques: BuyQueues) {
+  constructor(private readonly ques: PurchaseQueue) {
     super();
   }
 
-  async process(job: Job<IDataBuy, any, string>): Promise<any> {
+  async process(job: Job<IPurchaseOrder, any, string>): Promise<any> {
     const { data } = job;
     try {
       this.logger.log(`Processing job ${job.id} for ${data.email}`);
-      if (job.name === "buy-product") {
+      if (job.name === "process-order") {
         await this.ques.Process(data);
       }
     } catch (error) {
@@ -28,7 +28,7 @@ export class BuyConsumer extends WorkerHost {
   }
 
   @OnWorkerEvent("active")
-  onActive(job: Job<IDataBuy, any, string>) {
+  onActive(job: Job<IPurchaseOrder, any, string>) {
     const { data } = job;
     this.logger.log(
       `[${job.name.toUpperCase()}:${job.id}] [${data.email}:${data.productId}] is in process...`,
@@ -36,12 +36,12 @@ export class BuyConsumer extends WorkerHost {
   }
 
   @OnWorkerEvent("completed")
-  onCompleted(job: Job<IDataBuy, any, string>) {
+  onCompleted(job: Job<IPurchaseOrder, any, string>) {
     this.logger.log(`[${job.name.toUpperCase()}:${job.id}] Completed.`);
   }
 
   @OnWorkerEvent("failed")
-  onFailed(job: Job<IDataBuy, any, string>, error: Error) {
+  onFailed(job: Job<IPurchaseOrder, any, string>, error: Error) {
     this.logger.error(
       `[${job.name.toUpperCase()}:${job.id}] Failed: ${error.message}`,
     );

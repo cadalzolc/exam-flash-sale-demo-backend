@@ -1,20 +1,21 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { IDataBuy } from "src/lib/models/data";
-import { DtoBuy } from "src/lib/models/dto";
+import { FormatCode } from "src/lib/common";
+import { IOrderResponse, IPurchaseOrder } from "src/lib/models/data";
+import { DtoPurchaseOrder } from "src/lib/models/dto";
 import { IResponse } from "src/lib/models/interface";
 import { DBService } from "./db.service";
 import { QueueService } from "./queue.service";
 
 @Injectable()
-export class BuyService {
-  private readonly logger = new Logger(BuyService.name);
+export class PurchaseService {
+  private readonly logger = new Logger(PurchaseService.name);
 
   constructor(
     private db: DBService,
     private queueService: QueueService,
   ) {}
 
-  private async CheckUserPurchase(
+  private async CheckCustomerPurchase(
     email: string,
     productId: number,
     promoId: number,
@@ -44,8 +45,10 @@ export class BuyService {
     return !!existingPurchase;
   }
 
-  Create = async (payload: DtoBuy): Promise<IResponse<undefined>> => {
-    const data: IDataBuy = {
+  Create = async (
+    payload: DtoPurchaseOrder,
+  ): Promise<IResponse<IOrderResponse>> => {
+    const data: IPurchaseOrder = {
       promoId: payload.promoId,
       productId: payload.productId,
       email: payload.email,
@@ -53,7 +56,7 @@ export class BuyService {
       quantity: payload.quantity,
     };
 
-    const hasPurchased = await this.CheckUserPurchase(
+    const hasPurchased = await this.CheckCustomerPurchase(
       payload.email,
       payload.productId,
       payload.promoId,
@@ -70,6 +73,9 @@ export class BuyService {
       where: {
         promoId: data.promoId,
         productId: data.productId,
+      },
+      include: {
+        product: true,
       },
     });
 
@@ -94,11 +100,36 @@ export class BuyService {
       `Adding purchase to queue: ${data.email} for product ${data.productId}`,
     );
 
-    await this.queueService.addToPurchaseQueue(data);
+    const purchase = await this.db.purchase.create({
+      data: {
+        promoId: payload.promoId,
+        productId: payload.productId,
+        email: payload.email,
+        quantity: payload.quantity,
+        price: payload.price,
+        total: payload.quantity * payload.price,
+        status: "PENDING",
+      },
+    });
+
+    const orderNo = FormatCode("ORD", purchase.id);
+
+    await this.queueService.addToPurchaseQueue({
+      purchaseId: purchase.id,
+      transNo: orderNo,
+      transDate: purchase.createdAt,
+      product: productPromo?.product.name ?? "",
+      ...payload,
+    });
 
     return {
       code: "Success",
       message: "Your purchase is now in process",
+      data: {
+        no: orderNo,
+        date: purchase.createdAt,
+        amount: purchase.total.toNumber(),
+      },
     };
   };
 }

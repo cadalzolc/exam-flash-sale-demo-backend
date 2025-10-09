@@ -73,11 +73,12 @@ export class SocketService implements OnGatewayConnection, OnGatewayDisconnect {
     promoId: number,
     productId: number,
     data: IPurchaseResponse,
+    status: string,
   ) {
     const roomName = `room:${promoId}:${productId}:${data.customer}`;
     this.server.to(roomName).emit("purchase:status", {
       data,
-      status: "Completed",
+      status,
       timestamp: new Date().toISOString(),
     });
   }

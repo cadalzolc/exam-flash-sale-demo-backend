@@ -1,6 +1,6 @@
 import { IsEmail, IsNotEmpty, IsNumber, Min } from "class-validator";
 
-export class DtoBuy {
+export class DtoPurchaseOrder {
   @IsNumber({}, { message: "Must be a number" })
   @IsNotEmpty({ message: "Required" })
   promoId!: number;
