@@ -1,42 +1,7 @@
 import { Decimal } from "@prisma/client/runtime/library";
 
 import { format } from "date-fns";
-import * as fs from "fs";
-import { join } from "path";
-
-const env = process.env.NODE_ENV || "local";
-
-export const GetFolderUploadPath = (folder: string) => {
-  const rootDir =
-    env.toUpperCase() === "PRODUCTION" ? join(__dirname, "..") : process.cwd();
-
-  const uploadPath = join(rootDir, "public", "uploads", folder);
-
-  if (!fs.existsSync(uploadPath)) {
-    fs.mkdirSync(uploadPath, { recursive: true, mode: 0o755 });
-  }
-  return uploadPath;
-};
-
-export const GetFilePath = (folder: string, fileName: string) =>
-  join(GetFolderUploadPath(folder), fileName);
-
-export const DeleteFile = (
-  filePath: string,
-  callback?: (error: Error | null) => void,
-) => {
-  fs.unlink(filePath, (error) => {
-    if (error && error.code !== "ENOENT") {
-      if (callback) callback(error);
-    }
-  });
-};
-
-export const DeleteFileInFolder = (folder: string, fileName: string) => {
-  const filePath = GetFilePath(folder, fileName);
-  fs.accessSync(filePath, fs.constants.R_OK);
-  DeleteFile(filePath);
-};
+import { TPromoStatus } from "src/types";
 
 export const Slugify = (text: string): string => {
   return text
@@ -85,3 +50,19 @@ export const IsBoolean = (val: any): val is boolean => {
 
 export const ToNumber = (val: Decimal | null | undefined): number | null =>
   val != null ? val.toNumber() : null;
+
+export const GetDateStatus = (start: Date, end: Date): TPromoStatus => {
+  const current = new Date();
+  const from = new Date(start);
+  const to = new Date(end);
+
+  if (current < from) {
+    return "UPCOMING";
+  }
+
+  if (current >= from && current <= to) {
+    return "ACTIVE";
+  }
+
+  return "EXPIRED";
+};

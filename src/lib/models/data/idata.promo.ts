@@ -1,3 +1,4 @@
+import { TPromoStatus } from "src/types";
 import { IProduct } from "./idata.product";
 
 export interface IPromo {
@@ -25,6 +26,11 @@ export interface IPromoPeriod {
   dateEnd: Date;
 }
 
-export interface IPromoResponse extends IPromo {
+export interface IPromoResponse {
+  id: number;
+  name: string;
+  dateStart: Date;
+  dateEnd: Date;
+  status: TPromoStatus;
   products: IProduct[];
 }

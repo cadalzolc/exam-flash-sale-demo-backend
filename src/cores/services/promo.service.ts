@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { GetDateStatus } from "src/lib/common";
 import { IPromoPeriod, IPromoResponse } from "src/lib/models/data";
 import { IResponse } from "src/lib/models/interface";
 import { DBService } from "./db.service";
@@ -30,19 +31,11 @@ export class PromoService {
     await this.db.$executeRaw`
       UPDATE promos_products 
       SET 
-        stock = CASE 
-          WHEN product_id = 1 AND promo_id = ${promoId} THEN 25
-          WHEN product_id = 3 AND promo_id = ${promoId} THEN 50
-          WHEN product_id = 5 AND promo_id = ${promoId} THEN 30
-        END,
-        price = CASE 
-          WHEN product_id = 1 AND promo_id = ${promoId} THEN 800
-          WHEN product_id = 3 AND promo_id = ${promoId} THEN 100
-          WHEN product_id = 5 AND promo_id = ${promoId} THEN 350
-        END,
+        stock = 25,
+        price = 50000,
         sold = 0,
         max_qty_per_order = 1
-      WHERE promo_id = ${promoId} AND product_id IN (1, 3, 5)
+      WHERE promo_id = ${promoId} AND product_id IN (1)
     `;
 
     await this.redisService.loadActivePromoStock();
@@ -75,12 +68,14 @@ export class PromoService {
       };
     }
 
+    const status = GetDateStatus(promo.dateStart, promo.dateEnd);
+
     const result: IPromoResponse = {
       id: promo.id,
       name: promo.name,
       dateStart: promo.dateStart,
       dateEnd: promo.dateEnd,
-      mode: promo.mode,
+      status,
       products: promo.promoProducts.map((p) => ({
         id: p.productId,
         promoId: p.promoId,
