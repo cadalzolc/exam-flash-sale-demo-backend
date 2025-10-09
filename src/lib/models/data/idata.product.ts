@@ -1,7 +1,9 @@
 export interface IProduct {
   id: number;
+  promoId?: number;
   name: string;
   description: string;
-  url: string;
   stock: number;
+  url?: string;
+  price: number;
 }
