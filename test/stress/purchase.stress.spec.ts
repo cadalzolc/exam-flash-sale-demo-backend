@@ -120,7 +120,7 @@ describe("Purchase Stress Tests", () => {
       const results = {
         success: 0,
         failed: 0,
-        duplicate: 0,
+        nostock: 0,
       };
 
       const emails = Array.from(
@@ -147,7 +147,7 @@ describe("Purchase Stress Tests", () => {
               if (response.body.code === "Success") {
                 results.success++;
               } else if (response.body.code === "Forbidden") {
-                results.duplicate++;
+                results.nostock++;
               } else {
                 results.failed++;
               }
@@ -182,17 +182,16 @@ describe("Purchase Stress Tests", () => {
       });
 
       console.log(`Stress Test Results:`);
-      console.log(`- Total Requests: ${CONCURRENT_REQUESTS}`);
-      console.log(`- Successful API Responses: ${results.success}`);
-      console.log(`- Completed DB Purchases: ${completedPurchases}`);
-      console.log(
-        `- Failed=${results.failed} | Duplicate=${results.duplicate}`,
-      );
+      console.log(`- Requests Count: ${CONCURRENT_REQUESTS}`);
+      console.log(`- Failed${results.failed}`);
+      console.log(`- Out of Stock=${results.nostock}`);
+      console.log(`- Order Processed: ${results.success}`);
+      console.log(`- Order Success: ${completedPurchases}`);
+
       console.log(`- Execution Time: ${endTime - startTime}ms`);
-      console.log(
-        `- Final Stock: Redis=${finalRedisStock} | DB=${finalDBProduct?.stock}`,
-      );
-      console.log(`- Final Sold: DB=${finalDBProduct?.sold}`);
+      console.log(`- Stock: Redis=${finalRedisStock}`);
+      console.log(`- Stock: Database=${finalDBProduct?.stock}`);
+      console.log(`- Sold: ${finalDBProduct?.sold}`);
 
       expect(completedPurchases).toBeLessThanOrEqual(INITIAL_STOCK);
       expect(finalDBProduct?.sold).toBeLessThanOrEqual(INITIAL_STOCK);

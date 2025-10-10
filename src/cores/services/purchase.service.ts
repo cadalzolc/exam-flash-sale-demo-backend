@@ -66,7 +66,7 @@ export class PurchaseService {
 
     if (hasPurchased) {
       return {
-        code: "Forbidden",
+        code: "Duplicate",
         message: "You have already purchased this product in the flash sale",
       };
     }
@@ -83,7 +83,7 @@ export class PurchaseService {
 
     if (!productPromo) {
       return {
-        code: "Forbidden",
+        code: "Failed",
         message: "Product not found",
       };
     }
