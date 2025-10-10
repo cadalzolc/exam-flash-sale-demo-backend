@@ -258,3 +258,68 @@ npm run test:purchase #or yarn test:purchase
 # integration
 npm run test:integration #or yarn test:integration
 ```
+
+## Full Architecture
+```mermaid
+---
+config:
+  layout: elk
+---
+flowchart TB
+ subgraph Client["Client Layer"]
+        UI["React Frontend"]
+  end
+ subgraph API["API Gateway Layer"]
+        LB["Load Balancer"]
+        API1["API Server 1"]
+        API2["API Server 2"]
+        API3["API Server N"]
+  end
+ subgraph Cache["Caching Layer"]
+        Redis[("Redis Cache")]
+  end
+ subgraph Queue["Message Queue Layer"]
+        MQ["Message Queue<br>RabbitMQ/Redis"]
+  end
+ subgraph Processing["Processing Layer"]
+        Worker1["Purchase Worker 1"]
+        Worker2["Purchase Worker 2"]
+        Worker3["Purchase Worker N"]
+  end
+ subgraph Storage["Data Storage Layer"]
+        DB[("PostgreSQL/MySQL<br>Database")]
+  end
+ subgraph Monitoring["Monitoring & Logging"]
+        Monitor["Monitoring Service"]
+  end
+    UI -- HTTP Requests --> LB
+    LB --> API1 & API2 & API3
+    API1 -. Read/Write .-> Redis
+    API2 -. Read/Write .-> Redis
+    API3 -. Read/Write .-> Redis
+    API1 -- Enqueue Purchase --> MQ
+    API2 -- Enqueue Purchase --> MQ
+    API3 -- Enqueue Purchase --> MQ
+    MQ -- Dequeue --> Worker1 & Worker2 & Worker3
+    Worker1 -- Update Inventory --> DB
+    Worker2 -- Update Inventory --> DB
+    Worker3 -- Update Inventory --> DB
+    Worker1 -. Update Cache .-> Redis
+    Worker2 -. Update Cache .-> Redis
+    Worker3 -. Update Cache .-> Redis
+    API1 -- Read Sale Status --> DB
+    API2 -- Read Sale Status --> DB
+    API3 -- Read Sale Status --> DB
+    API1 -. Logs & Metrics .-> Monitor
+    Worker1 -. Logs & Metrics .-> Monitor
+    DB -. Metrics .-> Monitor
+    style UI fill:#e1f5ff
+    style LB fill:#C8E6C9
+    style Redis fill:#ffe6e6
+    style MQ fill:#f0e6ff
+    style DB fill:#e6ffe6
+    style Monitor fill:#fff0f0
+    style API fill:#FFCDD2
+    style Queue fill:#FFCDD2
+
+```
