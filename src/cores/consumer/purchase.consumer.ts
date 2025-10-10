@@ -5,9 +5,21 @@ import { QUEUES_PURCHASE } from "src/lib/common";
 import { IJobPurchase } from "src/lib/models/data";
 import { PurchaseQueue } from "../queues/purchase.queue";
 
-const CONCURRENCY = 3;
+const CONCURRENCY = 5;
 
-@Processor(QUEUES_PURCHASE, { concurrency: CONCURRENCY })
+@Processor(QUEUES_PURCHASE, {
+  concurrency: CONCURRENCY,
+  lockDuration: 30000,
+  stalledInterval: 30000,
+  maxStalledCount: 2,
+  removeOnComplete: {
+    age: 3600,
+    count: 1000,
+  },
+  removeOnFail: {
+    age: 24 * 3600,
+  },
+})
 export class PurchaseConsumer extends WorkerHost {
   private readonly logger = new Logger(PurchaseConsumer.name);
 
@@ -23,6 +35,7 @@ export class PurchaseConsumer extends WorkerHost {
         await this.ques.Process(data);
       }
     } catch (error) {
+      this.logger.error(`Job ${job.id} failed: ${error}`);
       throw error;
     }
   }

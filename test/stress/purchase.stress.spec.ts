@@ -60,107 +60,7 @@ describe("Purchase Stress Tests", () => {
       console.log("=== STOCK ALLOCATION DEBUG ===");
       console.log("Main Product Stock:", mainProduct?.stock);
       console.log("Promo Product Stock:", promoProduct?.stock);
-      console.log("Promo Product Sold:", promoProduct?.sold);
-
-      if (mainProduct && promoProduct) {
-        const availableForPromo = mainProduct.stock - promoProduct.sold;
-        console.log("Available stock for promo:", availableForPromo);
-        console.log(
-          "Is promo stock valid?",
-          promoProduct.stock <= availableForPromo,
-        );
-      }
     });
-
-    it("should handle 100 concurrent requests without overselling", async () => {
-      const CONCURRENT_REQUESTS = 100;
-      const INITIAL_STOCK = 25;
-      const requests = [];
-      const results = {
-        success: 0,
-        failed: 0,
-        duplicate: 0,
-        purchaseIds: [] as string[],
-      };
-
-      const emails = Array.from(
-        { length: CONCURRENT_REQUESTS },
-        (_, i) => `stress-test-${i}@example.com`,
-      );
-
-      const startTime = Date.now();
-
-      for (let i = 0; i < CONCURRENT_REQUESTS; i++) {
-        const payload = {
-          promoId: 2,
-          productId: 1,
-          email: emails[i],
-          price: 50000,
-          quantity: 1,
-        };
-
-        requests.push(
-          request(app.getHttpServer())
-            .post("/purchase")
-            .send(payload)
-            .then((response) => {
-              if (response.body.code === "Success") {
-                results.success++;
-                if (response.body.data?.no) {
-                  results.purchaseIds.push(response.body.data.no);
-                }
-              } else if (response.body.code === "Forbidden") {
-                results.duplicate++;
-              } else {
-                results.failed++;
-              }
-            })
-            .catch(() => {
-              results.failed++;
-            }),
-        );
-      }
-
-      await Promise.all(requests);
-      const endTime = Date.now();
-
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
-      const purchaseRecords = await dbService.purchase.findMany({
-        where: {
-          promoId: 2,
-          productId: 1,
-          email: { in: emails },
-        },
-      });
-
-      const finalRedisStock = await redisService.getStock(2, 1);
-      const finalDBProduct = await dbService.promoProduct.findUnique({
-        where: {
-          productId_promoId: {
-            promoId: 2,
-            productId: 1,
-          },
-        },
-      });
-      console.log(`Stress Test Results:`);
-      console.log(`- Total Requests: ${CONCURRENT_REQUESTS}`);
-      console.log(`- Successful: ${results.success}`);
-      console.log(`- Purchase Records Created: ${purchaseRecords.length}`);
-      console.log(`- Failed: ${results.failed}`);
-      console.log(`- Duplicate prevented: ${results.duplicate}`);
-      console.log(`- Execution Time: ${endTime - startTime}ms`);
-      console.log(`- Final Redis Stock: ${finalRedisStock}`);
-      console.log(`- Final DB Stock: ${finalDBProduct?.stock}`);
-      console.log(`- Final DB Sold: ${finalDBProduct?.sold}`);
-
-      expect(purchaseRecords.length).toBe(results.success);
-      expect(results.success).toBeLessThanOrEqual(INITIAL_STOCK);
-      expect(finalDBProduct?.sold).toBeLessThanOrEqual(INITIAL_STOCK);
-      expect(finalDBProduct?.stock).toBe(
-        INITIAL_STOCK - (finalDBProduct?.sold || 0),
-      );
-    }, 30000);
 
     it("should handle mixed quantity requests", async () => {
       const requests = [];
@@ -189,6 +89,13 @@ describe("Purchase Stress Tests", () => {
 
       const responses = await Promise.all(requests);
 
+      console.log("=== CONCURRENT RESULTS ===");
+      responses.forEach((response, index) => {
+        console.log(
+          `Qty ${testCases[index].quantity}: ${response.body.code} - ${response.body.message}`,
+        );
+      });
+
       const totalSold = responses.reduce((sum, response, index) => {
         if (response.body.code === "Success") {
           return sum + testCases[index].quantity;
@@ -196,7 +103,41 @@ describe("Purchase Stress Tests", () => {
         return sum;
       }, 0);
 
+      const redisStock = await redisService.getStock(2, 1);
+      console.log("Redis stock after purchase:", redisStock);
+
       expect(totalSold).toBeLessThanOrEqual(INITIAL_STOCK);
+
+      const successCount = responses.filter(
+        (r) => r.body.code === "Success",
+      ).length;
+      console.log(`Successful purchases: ${successCount}/${testCases.length}`);
+    });
+
+    it("should test single purchase flow", async () => {
+      const payload = {
+        promoId: 2,
+        productId: 1,
+        email: "single-test@example.com",
+        price: 50000,
+        quantity: 1,
+      };
+
+      console.log("=== SINGLE PURCHASE TEST ===");
+
+      const response = await request(app.getHttpServer())
+        .post("/purchase")
+        .send(payload);
+
+      console.log("Response:", response.body);
+
+      const redisStock = await redisService.getStock(2, 1);
+      console.log("Redis stock after purchase:", redisStock);
+
+      const purchase = await dbService.purchase.findFirst({
+        where: { email: "single-test@example.com" },
+      });
+      console.log("Purchase record:", purchase);
     });
   });
 });

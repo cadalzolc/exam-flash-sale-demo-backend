@@ -88,7 +88,7 @@ export class PurchaseService {
       };
     }
 
-    if (data.quantity > productPromo.maxQtyPerOrder) {
+    if (payload.quantity > productPromo.maxQtyPerOrder) {
       return {
         code: "Forbidden",
         message: "Purchase quantity exceeds the limit",
@@ -102,6 +102,11 @@ export class PurchaseService {
     );
 
     if (!isStockReserved) {
+      await this.redisService.incrementStock(
+        payload.promoId,
+        payload.productId,
+        payload.quantity,
+      );
       return {
         code: "Forbidden",
         message: "Insufficient stock available. Realtime Inventory",
@@ -126,8 +131,6 @@ export class PurchaseService {
         message: "Purchase not created",
       };
     }
-
-    Logger.log(`New purchase created ${purchase.id}`);
 
     const orderNo = FormatCode("ORD", purchase.id);
 

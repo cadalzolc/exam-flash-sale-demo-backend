@@ -52,14 +52,15 @@ export class RedisService {
   ): Promise<boolean> {
     const stockKey = `stock:${promoId}:${productId}`;
     const script = `
-    local stock = redis.call('GET', KEYS[1])        -- KEYS[1] = "stock:1:123"
-    if not stock or tonumber(stock) < tonumber(ARGV[1]) then
-      return -1
-    end
-    return redis.call('DECRBY', KEYS[1], ARGV[1])   -- ARGV[1] = quantity (e.g., 2)
-  `;
+      local stock = redis.call('GET', KEYS[1])
+      if not stock or tonumber(stock) < tonumber(ARGV[1]) then
+        return -1
+      end
+      return redis.call('DECRBY', KEYS[1], ARGV[1])
+    `;
 
     const result = await this.redis.eval(script, 1, stockKey, quantity);
+
     return result !== -1;
   }
 

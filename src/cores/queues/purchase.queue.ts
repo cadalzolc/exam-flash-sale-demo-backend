@@ -48,78 +48,110 @@ export class PurchaseQueue {
     if (!reserved) {
       this.EmitPurchaseStatus(payload, "NOSTOCK");
       throw new Error("OUT_OF_STOCK");
+      return;
     }
 
     try {
-      const existingPurchase = await this.db.purchase.findUnique({
-        where: { id: payload.purchaseId },
-      });
+      const { purchase, promoProductUpdate } = await this.db.$transaction(
+        async (trx) => {
+          const existingPurchase = await trx.purchase.findUnique({
+            where: { id: payload.purchaseId },
+          });
 
-      if (!existingPurchase) {
-        throw new Error("PURCHASE_NOT_FOUND");
-      }
+          if (!existingPurchase) {
+            this.logger.error(
+              `Purchase ${payload.purchaseId} not found in transaction`,
+            );
+            throw new Error("PURCHASE_NOT_FOUND");
+          }
 
-      const existingPromo = await this.db.promo.findFirst({
-        where: { id: payload.promoId },
-      });
+          const existingPromo = await trx.promo.findFirst({
+            where: { id: payload.promoId },
+          });
 
-      if (!existingPromo) {
-        throw new Error("PROMO_NOT_FOUND");
-      }
+          if (!existingPromo) {
+            throw new Error("PROMO_NOT_FOUND");
+          }
 
-      const status = GetDateStatus(
-        existingPromo.dateStart,
-        existingPromo.dateEnd,
+          const status = GetDateStatus(
+            existingPromo.dateStart,
+            existingPromo.dateEnd,
+          );
+
+          if (status === "EXPIRED" || status === "UPCOMING") {
+            throw new Error("PROMO_NOT_ACTIVE");
+          }
+
+          const promoProductUpdate = await trx.promoProduct.update({
+            where: {
+              productId_promoId: {
+                promoId: payload.promoId,
+                productId: payload.productId,
+              },
+              stock: {
+                gte: payload.quantity,
+              },
+            },
+            data: {
+              stock: {
+                decrement: payload.quantity,
+              },
+              sold: {
+                increment: payload.quantity,
+              },
+            },
+          });
+
+          this.logger.log(
+            `[${payload.purchaseId}] Promo product stock updated: ${promoProductUpdate.stock} remaining`,
+          );
+
+          const updatedProduct = await trx.product.update({
+            where: {
+              id: payload.productId,
+              stock: {
+                gte: payload.quantity,
+              },
+            },
+            data: {
+              stock: {
+                decrement: payload.quantity,
+              },
+            },
+          });
+
+          this.logger.log(
+            `[${payload.purchaseId}] Main product stock updated: ${updatedProduct.stock} remaining`,
+          );
+
+          const purchase = await trx.purchase.update({
+            where: { id: payload.purchaseId },
+            data: {
+              status: "COMPLETED",
+              updatedAt: new Date(),
+            },
+          });
+
+          this.logger.log(
+            `[${payload.purchaseId}] Purchase marked as COMPLETED`,
+          );
+
+          return { promoProductUpdate, purchase };
+        },
       );
 
-      if (status === "EXPIRED" || status === "UPCOMING") {
-        throw new Error("PROMO_NOT_ACTIVE");
-      }
-
-      const promoProductUpdateResult = await this.db.promoProduct.updateMany({
-        where: {
-          promoId: payload.promoId,
-          productId: payload.productId,
-          stock: {
-            gte: payload.quantity,
-          },
-        },
-        data: {
-          stock: {
-            decrement: payload.quantity,
-          },
-          sold: {
-            increment: payload.quantity,
-          },
-        },
-      });
-
-      if (promoProductUpdateResult.count === 0) {
-        throw new Error("OUT_OF_STOCK");
-      }
-
-      const purchase = await this.db.purchase.update({
-        where: { id: payload.purchaseId },
-        data: {
-          status: "COMPLETED",
-          updatedAt: new Date(),
-        },
-      });
-
-      const finalPromoProduct = await this.db.promoProduct.findUnique({
-        where: {
-          productId_promoId: {
-            promoId: payload.promoId,
-            productId: payload.productId,
-          },
-        },
-      });
-      const finalSoldCount = finalPromoProduct?.sold ?? 0;
+      await this.redisService.setStock(
+        payload.promoId,
+        payload.productId,
+        promoProductUpdate.stock,
+      );
 
       const currentRedisStock = await this.redisService.getStock(
         payload.promoId,
         payload.productId,
       );
+
+      const finalSoldCount = promoProductUpdate.sold;
 
       this.socketService.emitStockPromoUpdate(
         payload.promoId,
@@ -132,7 +164,7 @@ export class PurchaseQueue {
 
       this.logger.log(`Purchase completed: ${purchase.id}`);
       this.logger.log(
-        `Stock updated for product ${payload.productId}: DB=${finalPromoProduct?.stock}, Redis=${currentRedisStock}`,
+        `Stock updated for product ${payload.productId}: DB=${promoProductUpdate?.stock}, Redis=${currentRedisStock}`,
       );
     } catch (error) {
       this.logger.error(
