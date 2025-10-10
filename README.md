@@ -164,28 +164,6 @@ graph LR
     F --> I
 ```
 
-## ⚡ Concurrency Handling
-
-```mermaid
-graph TD
-    A[100 Concurrent Requests] --> B[Redis Stock Reservation]
-
-    B --> C[25 Successful Reservations]
-    B --> D[75 Failed - No Stock]
-
-    C --> E[Create 25 PENDING Purchases]
-    C --> F[Add 25 Queue Jobs]
-
-    E --> G[Database]
-    F --> H[Queue Processing]
-
-    H --> I[25 COMPLETED Purchases]
-    H --> J[Sync Redis Stock to 0]
-
-    I --> K[Final State: 25 Sales]
-    J --> L[Stock: Redis=0, DB=0]
-```
-
 ## Create PostreSql DB and Redis DB
 
 ## Create Environment Variables
