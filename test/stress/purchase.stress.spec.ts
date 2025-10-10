@@ -43,6 +43,7 @@ describe("Purchase Stress Tests", () => {
   });
 
   describe("Concurrent Purchase Requests", () => {
+    /*
     it("should debug stock allocation", async () => {
       const mainProduct = await dbService.product.findUnique({
         where: { id: 1 },
@@ -103,9 +104,6 @@ describe("Purchase Stress Tests", () => {
         return sum;
       }, 0);
 
-      const redisStock = await redisService.getStock(2, 1);
-      console.log("Redis stock after purchase:", redisStock);
-
       expect(totalSold).toBeLessThanOrEqual(INITIAL_STOCK);
 
       const successCount = responses.filter(
@@ -113,31 +111,96 @@ describe("Purchase Stress Tests", () => {
       ).length;
       console.log(`Successful purchases: ${successCount}/${testCases.length}`);
     });
+    */
 
-    it("should test single purchase flow", async () => {
-      const payload = {
-        promoId: 2,
-        productId: 1,
-        email: "single-test@example.com",
-        price: 50000,
-        quantity: 1,
+    it("should handle 100 concurrent requests without overselling", async () => {
+      const CONCURRENT_REQUESTS = 100;
+      const INITIAL_STOCK = 25;
+      const requests = [];
+      const results = {
+        success: 0,
+        failed: 0,
+        duplicate: 0,
       };
 
-      console.log("=== SINGLE PURCHASE TEST ===");
+      const emails = Array.from(
+        { length: CONCURRENT_REQUESTS },
+        (_, i) => `stress-test-${i}@example.com`,
+      );
 
-      const response = await request(app.getHttpServer())
-        .post("/purchase")
-        .send(payload);
+      const startTime = Date.now();
 
-      console.log("Response:", response.body);
+      for (let i = 0; i < CONCURRENT_REQUESTS; i++) {
+        const payload = {
+          promoId: 2,
+          productId: 1,
+          email: emails[i],
+          price: 50000,
+          quantity: 1,
+        };
 
-      const redisStock = await redisService.getStock(2, 1);
-      console.log("Redis stock after purchase:", redisStock);
+        requests.push(
+          request(app.getHttpServer())
+            .post("/purchase")
+            .send(payload)
+            .then((response) => {
+              if (response.body.code === "Success") {
+                results.success++;
+              } else if (response.body.code === "Forbidden") {
+                results.duplicate++;
+              } else {
+                results.failed++;
+              }
+            })
+            .catch(() => {
+              results.failed++;
+            }),
+        );
+      }
 
-      const purchase = await dbService.purchase.findFirst({
-        where: { email: "single-test@example.com" },
+      await Promise.all(requests);
+      const endTime = Date.now();
+
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      const finalRedisStock = await redisService.getStock(2, 1);
+      const finalDBProduct = await dbService.promoProduct.findUnique({
+        where: {
+          productId_promoId: {
+            promoId: 2,
+            productId: 1,
+          },
+        },
       });
-      console.log("Purchase record:", purchase);
-    });
+
+      const completedPurchases = await dbService.purchase.count({
+        where: {
+          promoId: 2,
+          productId: 1,
+          status: "COMPLETED",
+        },
+      });
+
+      console.log(`Stress Test Results:`);
+      console.log(`- Total Requests: ${CONCURRENT_REQUESTS}`);
+      console.log(`- Successful API Responses: ${results.success}`);
+      console.log(`- Completed DB Purchases: ${completedPurchases}`);
+      console.log(
+        `- Failed=${results.failed} | Duplicate=${results.duplicate}`,
+      );
+      console.log(`- Execution Time: ${endTime - startTime}ms`);
+      console.log(
+        `- Final Stock: Redis=${finalRedisStock} | DB=${finalDBProduct?.stock}`,
+      );
+      console.log(`- Final Sold: DB=${finalDBProduct?.sold}`);
+
+      expect(completedPurchases).toBeLessThanOrEqual(INITIAL_STOCK);
+      expect(finalDBProduct?.sold).toBeLessThanOrEqual(INITIAL_STOCK);
+      expect(finalDBProduct?.stock).toBe(
+        INITIAL_STOCK - (finalDBProduct?.sold || 0),
+      );
+
+      expect(finalRedisStock).toBe(finalDBProduct?.stock);
+    }, 30000);
   });
 });

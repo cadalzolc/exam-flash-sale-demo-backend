@@ -48,7 +48,6 @@ export class PurchaseQueue {
     if (!reserved) {
       this.EmitPurchaseStatus(payload, "NOSTOCK");
       throw new Error("OUT_OF_STOCK");
-      return;
     }
 
     try {
