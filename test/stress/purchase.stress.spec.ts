@@ -43,6 +43,35 @@ describe("Purchase Stress Tests", () => {
   });
 
   describe("Concurrent Purchase Requests", () => {
+    it("should debug stock allocation", async () => {
+      const mainProduct = await dbService.product.findUnique({
+        where: { id: 1 },
+      });
+
+      const promoProduct = await dbService.promoProduct.findUnique({
+        where: {
+          productId_promoId: {
+            promoId: 2,
+            productId: 1,
+          },
+        },
+      });
+
+      console.log("=== STOCK ALLOCATION DEBUG ===");
+      console.log("Main Product Stock:", mainProduct?.stock);
+      console.log("Promo Product Stock:", promoProduct?.stock);
+      console.log("Promo Product Sold:", promoProduct?.sold);
+
+      if (mainProduct && promoProduct) {
+        const availableForPromo = mainProduct.stock - promoProduct.sold;
+        console.log("Available stock for promo:", availableForPromo);
+        console.log(
+          "Is promo stock valid?",
+          promoProduct.stock <= availableForPromo,
+        );
+      }
+    });
+
     it("should handle 100 concurrent requests without overselling", async () => {
       const CONCURRENT_REQUESTS = 100;
       const INITIAL_STOCK = 25;

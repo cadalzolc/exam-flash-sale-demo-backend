@@ -51,81 +51,60 @@ export class PurchaseQueue {
     }
 
     try {
-      const { updatedProduct, purchase } = await this.db.$transaction(
-        async (trx) => {
-          const existingPurchase = await trx.purchase.findUnique({
-            where: { id: payload.purchaseId },
-          });
+      const existingPurchase = await this.db.purchase.findUnique({
+        where: { id: payload.purchaseId },
+      });
 
-          if (!existingPurchase) {
-            throw new Error("PURCHASE_NOT_FOUND");
-          }
+      if (!existingPurchase) {
+        throw new Error("PURCHASE_NOT_FOUND");
+      }
 
-          const existingPromo = await trx.promo.findFirst({
-            where: { id: payload.promoId },
-          });
+      const existingPromo = await this.db.promo.findFirst({
+        where: { id: payload.promoId },
+      });
 
-          if (!existingPromo) {
-            throw new Error("PROMO_NOT_FOUND");
-          }
+      if (!existingPromo) {
+        throw new Error("PROMO_NOT_FOUND");
+      }
 
-          const status = GetDateStatus(
-            existingPromo.dateStart,
-            existingPromo.dateEnd,
-          );
-
-          if (status === "EXPIRED" || status === "UPCOMING") {
-            throw new Error("PROMO_NOT_ACTIVE");
-          }
-
-          const promoProductUpdateResult = await trx.promoProduct.updateMany({
-            where: {
-              promoId: payload.promoId,
-              productId: payload.productId,
-
-              stock: {
-                gte: payload.quantity,
-              },
-            },
-            data: {
-              stock: {
-                decrement: payload.quantity,
-              },
-              sold: {
-                increment: payload.quantity,
-              },
-            },
-          });
-
-          if (promoProductUpdateResult.count === 0) {
-            throw new Error("OUT_OF_STOCK");
-          }
-
-          const updatedProduct = await trx.product.update({
-            where: { id: payload.productId },
-            data: {
-              stock: {
-                decrement: payload.quantity,
-              },
-            },
-            select: {
-              id: true,
-              stock: true,
-              name: true,
-            },
-          });
-
-          const purchase = await trx.purchase.update({
-            where: { id: payload.purchaseId },
-            data: {
-              status: "COMPLETED",
-              updatedAt: new Date(),
-            },
-          });
-
-          return { promoProductUpdateResult, updatedProduct, purchase };
-        },
+      const status = GetDateStatus(
+        existingPromo.dateStart,
+        existingPromo.dateEnd,
       );
+
+      if (status === "EXPIRED" || status === "UPCOMING") {
+        throw new Error("PROMO_NOT_ACTIVE");
+      }
+
+      const promoProductUpdateResult = await this.db.promoProduct.updateMany({
+        where: {
+          promoId: payload.promoId,
+          productId: payload.productId,
+          stock: {
+            gte: payload.quantity,
+          },
+        },
+        data: {
+          stock: {
+            decrement: payload.quantity,
+          },
+          sold: {
+            increment: payload.quantity,
+          },
+        },
+      });
+
+      if (promoProductUpdateResult.count === 0) {
+        throw new Error("OUT_OF_STOCK");
+      }
+
+      const purchase = await this.db.purchase.update({
+        where: { id: payload.purchaseId },
+        data: {
+          status: "COMPLETED",
+          updatedAt: new Date(),
+        },
+      });
 
       const finalPromoProduct = await this.db.promoProduct.findUnique({
         where: {
@@ -153,7 +132,7 @@ export class PurchaseQueue {
 
       this.logger.log(`Purchase completed: ${purchase.id}`);
       this.logger.log(
-        `Stock updated for product ${payload.productId}: DB=${updatedProduct.stock}, Redis=${currentRedisStock}`,
+        `Stock updated for product ${payload.productId}: DB=${finalPromoProduct?.stock}, Redis=${currentRedisStock}`,
       );
     } catch (error) {
       this.logger.error(
