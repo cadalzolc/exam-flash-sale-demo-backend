@@ -183,14 +183,14 @@ describe("Purchase Stress Tests", () => {
 
       console.log(`Stress Test Results:`);
       console.log(`- Requests Count: ${CONCURRENT_REQUESTS}`);
-      console.log(`- Failed${results.failed}`);
-      console.log(`- Out of Stock=${results.nostock}`);
+      console.log(`- Failed: ${results.failed}`);
+      console.log(`- Out of Stock: ${results.nostock}`);
       console.log(`- Order Processed: ${results.success}`);
       console.log(`- Order Success: ${completedPurchases}`);
 
       console.log(`- Execution Time: ${endTime - startTime}ms`);
-      console.log(`- Stock: Redis=${finalRedisStock}`);
-      console.log(`- Stock: Database=${finalDBProduct?.stock}`);
+      console.log(`- Stock-Redis: ${finalRedisStock}`);
+      console.log(`- Stock-DB: ${finalDBProduct?.stock}`);
       console.log(`- Sold: ${finalDBProduct?.sold}`);
 
       expect(completedPurchases).toBeLessThanOrEqual(INITIAL_STOCK);
