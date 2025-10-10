@@ -51,6 +51,7 @@ describe("Purchase Stress Tests", () => {
         success: 0,
         failed: 0,
         duplicate: 0,
+        purchaseIds: [] as string[],
       };
 
       const emails = Array.from(
@@ -76,6 +77,9 @@ describe("Purchase Stress Tests", () => {
             .then((response) => {
               if (response.body.code === "Success") {
                 results.success++;
+                if (response.body.data?.no) {
+                  results.purchaseIds.push(response.body.data.no);
+                }
               } else if (response.body.code === "Forbidden") {
                 results.duplicate++;
               } else {
@@ -91,24 +95,42 @@ describe("Purchase Stress Tests", () => {
       await Promise.all(requests);
       const endTime = Date.now();
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 3000));
 
+      const purchaseRecords = await dbService.purchase.findMany({
+        where: {
+          promoId: 2,
+          productId: 1,
+          email: { in: emails },
+        },
+      });
+
+      const finalRedisStock = await redisService.getStock(2, 1);
+      const finalDBProduct = await dbService.promoProduct.findUnique({
+        where: {
+          productId_promoId: {
+            promoId: 2,
+            productId: 1,
+          },
+        },
+      });
       console.log(`Stress Test Results:`);
       console.log(`- Total Requests: ${CONCURRENT_REQUESTS}`);
       console.log(`- Successful: ${results.success}`);
+      console.log(`- Purchase Records Created: ${purchaseRecords.length}`);
       console.log(`- Failed: ${results.failed}`);
       console.log(`- Duplicate prevented: ${results.duplicate}`);
       console.log(`- Execution Time: ${endTime - startTime}ms`);
-      console.log(
-        `- Requests per second: ${CONCURRENT_REQUESTS / ((endTime - startTime) / 1000)}`,
-      );
+      console.log(`- Final Redis Stock: ${finalRedisStock}`);
+      console.log(`- Final DB Stock: ${finalDBProduct?.stock}`);
+      console.log(`- Final DB Sold: ${finalDBProduct?.sold}`);
 
-      const finalStock = await redisService.getStock(1, 1);
-      console.log(`- Final Stock: ${finalStock}`);
-
+      expect(purchaseRecords.length).toBe(results.success);
       expect(results.success).toBeLessThanOrEqual(INITIAL_STOCK);
-
-      expect(results.success + finalStock).toBe(INITIAL_STOCK);
+      expect(finalDBProduct?.sold).toBeLessThanOrEqual(INITIAL_STOCK);
+      expect(finalDBProduct?.stock).toBe(
+        INITIAL_STOCK - (finalDBProduct?.sold || 0),
+      );
     }, 30000);
 
     it("should handle mixed quantity requests", async () => {

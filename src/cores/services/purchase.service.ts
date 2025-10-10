@@ -81,10 +81,14 @@ export class PurchaseService {
       },
     });
 
-    if (
-      productPromo?.maxQtyPerOrder &&
-      data.quantity > productPromo.maxQtyPerOrder
-    ) {
+    if (!productPromo) {
+      return {
+        code: "Forbidden",
+        message: "Product not found",
+      };
+    }
+
+    if (data.quantity > productPromo.maxQtyPerOrder) {
       return {
         code: "Forbidden",
         message: "Purchase quantity exceeds the limit",
@@ -104,10 +108,6 @@ export class PurchaseService {
       };
     }
 
-    this.logger.log(
-      `Adding purchase to queue: ${data.email} for product ${data.productId}`,
-    );
-
     const purchase = await this.db.purchase.create({
       data: {
         promoId: payload.promoId,
@@ -119,6 +119,15 @@ export class PurchaseService {
         status: "PENDING",
       },
     });
+
+    if (!purchase) {
+      return {
+        code: "Failed",
+        message: "Purchase not created",
+      };
+    }
+
+    Logger.log(`New purchase created ${purchase.id}`);
 
     const orderNo = FormatCode("ORD", purchase.id);
 

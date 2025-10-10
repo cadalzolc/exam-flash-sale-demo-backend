@@ -15,6 +15,29 @@ export class PurchaseQueue {
     private socketService: SocketService,
   ) {}
 
+  private EmitPurchaseStatus = (payload: IJobPurchase, status: string) => {
+    this.socketService.emitPurchaseStatus(
+      payload.promoId,
+      payload.productId,
+      status,
+      {
+        transNo: payload.transNo,
+        transDate: payload.transDate,
+        product: payload.product,
+        customer: payload.email,
+        amount: payload.price,
+      },
+    );
+  };
+
+  private RollbackRedisReserve = async (payload: IJobPurchase) => {
+    await this.redisService.incrementStock(
+      payload.promoId,
+      payload.productId,
+      payload.quantity,
+    );
+  };
+
   Process = async (payload: IJobPurchase): Promise<void> => {
     const reserved = await this.redisService.reserveStockAtomic(
       payload.promoId,
@@ -23,74 +46,96 @@ export class PurchaseQueue {
     );
 
     if (!reserved) {
-      this.socketService.emitPurchaseStatus(
-        payload.promoId,
-        payload.productId,
-        "NOSTOCK",
-        {
-          transNo: payload.transNo,
-          transDate: payload.transDate,
-          product: payload.product,
-          customer: payload.email,
-          amount: payload.price,
-        },
-      );
-      throw new Error("Insufficient stock");
+      this.EmitPurchaseStatus(payload, "NOSTOCK");
+      throw new Error("OUT_OF_STOCK");
     }
 
     try {
-      const pr = await this.db.promo.findFirst({
-        where: { id: payload.promoId },
-      });
+      const { updatedProduct, purchase } = await this.db.$transaction(
+        async (trx) => {
+          const existingPurchase = await trx.purchase.findUnique({
+            where: { id: payload.purchaseId },
+          });
 
-      if (!pr) {
-        throw new Error("No promo found");
-      }
+          if (!existingPurchase) {
+            throw new Error("PURCHASE_NOT_FOUND");
+          }
 
-      const status = GetDateStatus(pr.dateStart, pr.dateEnd);
+          const existingPromo = await trx.promo.findFirst({
+            where: { id: payload.promoId },
+          });
 
-      if (status === "EXPIRED" || status === "UPCOMING") {
-        throw new Error("Promo is not active");
-      }
+          if (!existingPromo) {
+            throw new Error("PROMO_NOT_FOUND");
+          }
 
-      const promoP = await this.db.promoProduct.update({
+          const status = GetDateStatus(
+            existingPromo.dateStart,
+            existingPromo.dateEnd,
+          );
+
+          if (status === "EXPIRED" || status === "UPCOMING") {
+            throw new Error("PROMO_NOT_ACTIVE");
+          }
+
+          const promoProductUpdateResult = await trx.promoProduct.updateMany({
+            where: {
+              promoId: payload.promoId,
+              productId: payload.productId,
+
+              stock: {
+                gte: payload.quantity,
+              },
+            },
+            data: {
+              stock: {
+                decrement: payload.quantity,
+              },
+              sold: {
+                increment: payload.quantity,
+              },
+            },
+          });
+
+          if (promoProductUpdateResult.count === 0) {
+            throw new Error("OUT_OF_STOCK");
+          }
+
+          const updatedProduct = await trx.product.update({
+            where: { id: payload.productId },
+            data: {
+              stock: {
+                decrement: payload.quantity,
+              },
+            },
+            select: {
+              id: true,
+              stock: true,
+              name: true,
+            },
+          });
+
+          const purchase = await trx.purchase.update({
+            where: { id: payload.purchaseId },
+            data: {
+              status: "COMPLETED",
+              updatedAt: new Date(),
+            },
+          });
+
+          return { promoProductUpdateResult, updatedProduct, purchase };
+        },
+      );
+
+      const finalPromoProduct = await this.db.promoProduct.findUnique({
         where: {
           productId_promoId: {
             promoId: payload.promoId,
             productId: payload.productId,
           },
         },
-        data: {
-          stock: {
-            decrement: payload.quantity,
-          },
-          sold: {
-            increment: payload.quantity,
-          },
-        },
       });
-
-      const updatedProduct = await this.db.product.update({
-        where: { id: payload.productId },
-        data: {
-          stock: {
-            decrement: payload.quantity,
-          },
-        },
-        select: {
-          id: true,
-          stock: true,
-          name: true,
-        },
-      });
-
-      const purchase = await this.db.purchase.update({
-        where: { id: payload.purchaseId },
-        data: {
-          status: "COMPLETED",
-          updatedAt: new Date(),
-        },
-      });
+      const finalSoldCount = finalPromoProduct?.sold ?? 0;
 
       const currentRedisStock = await this.redisService.getStock(
         payload.promoId,
@@ -101,36 +146,52 @@ export class PurchaseQueue {
         payload.promoId,
         payload.productId,
         currentRedisStock,
-        promoP.sold,
+        finalSoldCount,
       );
 
-      this.socketService.emitPurchaseStatus(
-        payload.promoId,
-        payload.productId,
-        "COMPLETED",
-        {
-          transNo: payload.transNo,
-          transDate: payload.transDate,
-          product: payload.product,
-          customer: payload.email,
-          amount: payload.price,
-        },
-      );
+      this.EmitPurchaseStatus(payload, "COMPLETED");
 
       this.logger.log(`Purchase completed: ${purchase.id}`);
       this.logger.log(
         `Stock updated for product ${payload.productId}: DB=${updatedProduct.stock}, Redis=${currentRedisStock}`,
       );
     } catch (error) {
-      await this.redisService.incrementStock(
-        payload.promoId,
-        payload.productId,
-        payload.quantity,
-      );
       this.logger.error(
         `Purchase failed for product ${payload.productId}:`,
         error,
       );
+
+      if (error instanceof Error) {
+        switch (error.message) {
+          case "OUT_OF_STOCK":
+          case "PURCHASE_NOT_FOUND":
+            await this.RollbackRedisReserve(payload);
+            this.EmitPurchaseStatus(payload, "NOSTOCK");
+            return;
+          case "PROMO_NOT_FOUND":
+          case "PROMO_NOT_ACTIVE":
+            await this.RollbackRedisReserve(payload);
+            this.EmitPurchaseStatus(payload, "INACTIVE");
+            return;
+        }
+      }
+
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        (error as { code: string }).code === "P2025"
+      ) {
+        await this.RollbackRedisReserve(payload);
+        this.EmitPurchaseStatus(payload, "CANCELLED");
+        this.logger.warn(
+          `Purchase ${payload.purchaseId} was cancelled or not found`,
+        );
+        return;
+      }
+
+      await this.RollbackRedisReserve(payload);
+
       throw error;
     }
   };
