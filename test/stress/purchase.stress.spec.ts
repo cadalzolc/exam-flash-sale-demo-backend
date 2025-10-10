@@ -181,9 +181,9 @@ describe("Purchase Stress Tests", () => {
 
       console.log(`Stress Test Results:`);
       console.log(`- Requests Count: ${CONCURRENT_REQUESTS}`);
-      console.log(`- Failed: ${results.failed}`);
-      console.log(`- Out of Stock: ${results.nostock}`);
       console.log(`- Order Processed: ${results.success}`);
+      console.log(`- Out of Stock: ${results.failed + results.nostock}`);
+
       console.log(`- Order Success: ${completedPurchases}`);
 
       console.log(`- Execution Time: ${endTime - startTime}ms`);

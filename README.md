@@ -1,6 +1,7 @@
 # Flash-Sale Backend
 
 ## 🎯 System Overview
+
 A high-concurrency flash sale system built with NestJS, BullMQ, Redis, and PostgreSQL designed to handle thousands of simultaneous purchase requests while preventing overselling and maintaining data consistency.
 
 ## 🏗️ Architecture Design Choices
@@ -9,13 +10,12 @@ A high-concurrency flash sale system built with NestJS, BullMQ, Redis, and Postg
   - Choice:
     - API → Redis Reservation → Database → Queue Processing
   - Why:
-      - Immediate Response: Users get instant feedback ("Processing")
-      - Load Decoupling: HTTP layer offloads heavy processing to queues
-      - Scalability: Queue workers can scale independently
-      - Resilience: Failed purchases can be retried or handled gracefully
+    - Immediate Response: Users get instant feedback ("Processing")
+    - Load Decoupling: HTTP layer offloads heavy processing to queues
+    - Scalability: Queue workers can scale independently
+    - Resilience: Failed purchases can be retried or handled gracefully
   - Trade-off:
     - Added complexity vs simple synchronous processing
-        
 - Redis for Stock Management
   - Choice:
     - Redis atomic operations for initial stock reservation
@@ -37,7 +37,6 @@ A high-concurrency flash sale system built with NestJS, BullMQ, Redis, and Postg
     - Complex Queries: Easy reporting and analytics
   - Trade-off:
     - Slower than Redis but more reliable
-    
 - BullMQ for Queue Processing
   - Choice:
     - BullMQ over other queue systems
@@ -49,9 +48,8 @@ A high-concurrency flash sale system built with NestJS, BullMQ, Redis, and Postg
     - Concurrency Control: Configurable worker concurrency
   - Trade-off:
     - Redis dependency vs message broker like RabbitMQ
- 
----
 
+---
 
 ## 🏗️ System Architecture Diagram
 
@@ -96,6 +94,7 @@ graph TB
 ```
 
 ## Data Flow Sequence
+
 ```mermaid
 sequenceDiagram
     participant User
@@ -109,23 +108,25 @@ sequenceDiagram
     User->>API: Purchase Request
     API->>Redis: reserveStockAtomic()
     Redis-->>API: Stock Reserved?
-    
+
     alt Stock Available
         API->>DB: Create Purchase (PENDING)
         API->>Queue: Add to Purchase Queue
         API-->>User: "Processing Your Order"
         API->>WS: Emit "PROCESSING"
-        
+
         Queue->>Worker: Process Purchase
         Worker->>DB: Transaction - Update Stock
         Worker->>Redis: Sync Stock Value
         Worker->>WS: Emit "COMPLETED"
-        
+
     else No Stock
         API-->>User: "Out of Stock"
     end
 ```
+
 ## 🏗️ Component Architecture
+
 ```mermaid
 graph LR
     subgraph "Presentation Layer"
@@ -164,31 +165,59 @@ graph LR
 ```
 
 ## ⚡ Concurrency Handling
+
 ```mermaid
 graph TD
     A[100 Concurrent Requests] --> B[Redis Stock Reservation]
-    
+
     B --> C[25 Successful Reservations]
     B --> D[75 Failed - No Stock]
-    
+
     C --> E[Create 25 PENDING Purchases]
     C --> F[Add 25 Queue Jobs]
-    
+
     E --> G[Database]
     F --> H[Queue Processing]
-    
+
     H --> I[25 COMPLETED Purchases]
     H --> J[Sync Redis Stock to 0]
-    
+
     I --> K[Final State: 25 Sales]
     J --> L[Stock: Redis=0, DB=0]
 ```
 
-## 📝 Project setup
+## Create PostreSql DB and Redis DB
+
+## Create Environment Variables
+
+```yaml
+#.env
+NODE_ENV="development"
+
+APP_NAME="Flash-Demo"
+APP_VERSION="0.0.0"
+APP_PORT="3500"
+APP_URL="http://localhost:3500"
+APP_KEY="e8e770795fac9fcb4YtPmXIFpWadUMdI"
+
+DATABASE_URL="postgresql://user:pass@localhost:port/dbname?schema=public"
+
+FRONTEND_URL="http://localhost:3000"
+
+REDIS_HOST="127.0.0.1"
+REDIS_PORT="6379"
+REDIS_USERNAME=""
+REDIS_PASSWORD=""
+```
+
+## 📝 Project Setup Step by Step
 
 ```bash
 # Install Packages
 npm install # or yarn
+
+# Seed Database
+npm run db:seed #or yarn db:seed
 
 # Run the project
 npm run dev # or yarn dev
@@ -200,6 +229,7 @@ npm run build # or yarn build
 ---
 
 ### Running the Stress Tests
+
 ```bash
 # stress
 npm run test:stress #or yarn test:stress
@@ -207,16 +237,17 @@ npm run test:stress #or yarn test:stress
 
 ```yaml
 ✅ Stress Test Results:
-- Requests Count: 100
-- Failed/Out of Stock: 30-40 (correctly rejected)
-- Order Processed: 50-70 (Redis reservations)
-- Order Success: 25 (EXACTLY - no overselling)
-- Stock-Redis: 0 (perfect sync)
-- Stock-DB: 0 (perfect sync)
-- Sold: 25 (Match with assigned task)
+  - Requests Count: 100
+  - Failed/Out of Stock: 30-40 (correctly rejected)
+  - Order Processed: 50-70 (Redis reservations)
+  - Order Success: 25 (EXACTLY - no overselling)
+  - Stock-Redis: 0 (perfect sync)
+  - Stock-DB: 0 (perfect sync)
+  - Sold: 25 (Match with assigned task)
 ```
 
 ### Other test
+
 ```bash
 # promo
 npm run test:promo #or yarn test:promo

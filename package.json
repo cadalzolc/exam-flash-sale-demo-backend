@@ -17,10 +17,10 @@
     "test:purchase": "jest --testPathPatterns=\"purchase\\.controller\\.spec\\.ts$\"",
     "test:integration": "jest --testPathPatterns=\"purchase\\.integration\\.spec\\.ts$\"",
     "test:stress": "jest --testPathPatterns=\"purchase\\.stress\\.spec\\.ts$\"",
-    "prisma:deploy": "npx prisma migrate deploy && npx prisma generate",
-    "prisma:migrate": "npx prisma migrate dev",
-    "prisma:generate": "npx prisma generate",
-    "prisma:reset": "npx prisma migrate reset"
+    "db:seed": "ts-node prisma/seed.ts",
+    "db:reset": "npx prisma migrate reset --force",
+    "db:migrate": "npx prisma migrate dev",
+    "db:deploy": "npx prisma migrate deploy"
   },
   "dependencies": {
     "@nestjs/bullmq": "^11.0.3",

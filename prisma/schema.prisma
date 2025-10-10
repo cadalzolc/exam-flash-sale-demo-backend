@@ -37,7 +37,7 @@ model Promo {
    name          String
    dateStart     DateTime       @map("date_start")
    dateEnd       DateTime       @map("date_end")
-   mode          ESalesMode     @default(NORMAL)
+   mode          ESalesMode     @default(FLASH)
    createdAt     DateTime       @default(now()) @map("created_at")
    isActive      Boolean        @map("is_active")
    promoProducts PromoProduct[]
