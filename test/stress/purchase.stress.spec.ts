@@ -43,7 +43,6 @@ describe("Purchase Stress Tests", () => {
   });
 
   describe("Concurrent Purchase Requests", () => {
-    /*
     it("should debug stock allocation", async () => {
       const mainProduct = await dbService.product.findUnique({
         where: { id: 1 },
@@ -111,7 +110,6 @@ describe("Purchase Stress Tests", () => {
       ).length;
       console.log(`Successful purchases: ${successCount}/${testCases.length}`);
     });
-    */
 
     it("should handle 100 concurrent requests without overselling", async () => {
       const CONCURRENT_REQUESTS = 100;
