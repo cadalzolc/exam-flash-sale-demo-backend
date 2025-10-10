@@ -5,6 +5,7 @@ import { DtoPurchaseOrder } from "src/lib/models/dto";
 import { IResponse } from "src/lib/models/interface";
 import { DBService } from "./db.service";
 import { QueueService } from "./queue.service";
+import { RedisService } from "./redis.service";
 
 @Injectable()
 export class PurchaseService {
@@ -13,6 +14,7 @@ export class PurchaseService {
   constructor(
     private db: DBService,
     private queueService: QueueService,
+    private redisService: RedisService,
   ) {}
 
   private async CheckCustomerPurchase(
@@ -89,10 +91,16 @@ export class PurchaseService {
       };
     }
 
-    if (productPromo && data.quantity > productPromo.stock) {
+    const isStockReserved = await this.redisService.reserveStockAtomic(
+      payload.promoId,
+      payload.productId,
+      payload.quantity,
+    );
+
+    if (!isStockReserved) {
       return {
         code: "Forbidden",
-        message: "Insufficient stock available",
+        message: "Insufficient stock available. Realtime Inventory",
       };
     }
 
