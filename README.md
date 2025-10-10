@@ -198,7 +198,7 @@ APP_NAME="Flash-Demo"
 APP_VERSION="0.0.0"
 APP_PORT="3500"
 APP_URL="http://localhost:3500"
-APP_KEY="e8e770795fac9fcb4YtPmXIFpWadUMdI"
+APP_KEY="xxx"
 
 DATABASE_URL="postgresql://user:pass@localhost:port/dbname?schema=public"
 
